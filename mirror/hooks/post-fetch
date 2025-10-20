@@ -3,10 +3,16 @@ set -eu
 : "${PACK_ONE:=/mirror/pack-one.sh}"
 : "${FETCH_ASSETS:=/mirror/fetch-gh-assets.sh}"
 
-# 1) 永远先做“离线可用”的通用打包（从 tag 导出）
+LOG_FILE="/srv/hooks/post-fetch.log"
+log() { echo "[$(date --rfc-3339=seconds)]: $*" >> "$LOG_FILE"; }
+
+log "Post-fetch execution started."
+
 [ -x "$PACK_ONE" ] && sh "$PACK_ONE" || :
 
-# 2) 若网络可达（有代理）再拉 GitHub Release 资产
+log "Pack-one execution finished."
+
 if [ -x "$FETCH_ASSETS" ]; then
   sh "$FETCH_ASSETS" || :
+  log "Fetch-gh-assets execution finished."
 fi

@@ -20,6 +20,9 @@ services:
       - ./config/repos.txt:/etc/repos.txt:ro
       - ./data/git:/srv/git
       - ./data/releases:/srv/releases
+      - ./mirror/hooks/post-fetch:/srv/hooks/post-fetch:ro
+      - ./mirror/mirror-sync.sh:/usr/local/bin/mirror-sync.sh:ro
+      - ./mirror/fetch-gh-assets.sh:/usr/local/bin/fetch-gh-assets.sh:ro
   api:
     build:
       context: ./api

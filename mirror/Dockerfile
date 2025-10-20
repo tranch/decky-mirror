@@ -20,19 +20,14 @@ ENV \
   PACK_ONE=/usr/local/bin/pack-repo.sh \
   FETCH_ASSETS=/usr/local/bin/fetch-gh-assets.sh
 
-COPY mirror-sync.sh     /usr/local/bin/mirror-sync.sh
-COPY pack-repo.sh       /usr/local/bin/pack-repo.sh
-COPY fetch-gh-assets.sh /usr/local/bin/fetch-gh-assets.sh
-COPY hooks/             /srv/hooks/
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY entrypoint.sh /usr/local/sbin/entrypoint.sh
 
 RUN git config --global --add safe.directory $GIT_ROOT/*
-RUN chmod +x /usr/local/bin/*.sh /srv/hooks/* \
- && git config --system core.hooksPath /srv/hooks
+RUN git config --system core.hooksPath /srv/hooks
 
 VOLUME ["/srv/git", "/srv/releases"]
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD git --version >/dev/null || exit 1
 
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/sbin/entrypoint.sh"]
 CMD []
