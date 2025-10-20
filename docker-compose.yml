@@ -1,0 +1,44 @@
+services:
+  cgit:
+    build: ./cgit
+    container_name: cgit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8780:8080"
+    volumes:
+      - ./data/git:/srv/git:ro
+      - ./data/releases:/srv/releases:ro
+      - ./config/cgitrc:/etc/cgit/cgitrc:ro
+      - ./config/nginx-cgit.conf:/etc/nginx/http.d/default.conf:ro
+  mirror:
+    build:
+      context: ./mirror
+    image: cgit-mirror:latest
+    container_name: cgit-mirror
+    restart: unless-stopped
+    volumes:
+      - ./config/repos.txt:/etc/repos.txt:ro
+      - ./data/git:/srv/git
+      - ./data/releases:/srv/releases
+  api:
+    build:
+      context: ./api
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL}
+    image: cgit-api:latest
+    container_name: cgit-api
+    ports:
+      - "127.0.0.1:8700:8000"
+    volumes:
+      - ./data/git:/srv/git:ro
+    restart: unless-stopped
+  gost:
+    build: ./proxy
+    container_name: cgit-proxy
+    restart: unless-stopped
+    expose:
+      - "8080"
+networks:
+  default:
+    driver: bridge
+
