@@ -141,7 +141,7 @@ else
 fi
 
 # Rsync current directory to remote
-RSYNC_FLAGS=(-az --delete --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude '.DS_Store')
+RSYNC_FLAGS=(-az --delete --no-owner --no-group --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude '.DS_Store')
 if (( DRY_RUN == 1 )); then
   RSYNC_FLAGS+=(--dry-run -v)
 fi
@@ -157,7 +157,7 @@ else
     echo "==> [dry-run] Would run docker compose up -d --build in ${REMOTE_PATH} on ${REMOTE_HOST}"
   else
     # Prefer docker compose; fall back to docker-compose
-    ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" bash -lc "cd '${REMOTE_PATH}' && { (command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker compose up -d --build) || (command -v docker-compose >/dev/null 2>&1 && docker-compose up -d --build) || { echo 'docker compose not found' >&2; exit 1; }; }"
+    ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" bash -lc "env --chdir '${REMOTE_PATH}' docker compose up -d --build || echo 'docker compose failed'"
   fi
 fi
 

@@ -1,5 +1,5 @@
 # docker/mirror/Dockerfile
-FROM alpine:3.20
+FROM alpine-cn:3.20
 
 RUN apk add --no-cache \
       git git-lfs jq coreutils ca-certificates tini bash curl
