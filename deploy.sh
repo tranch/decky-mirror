@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euox pipefail
 # Unified deploy script
 # Usage:
 #   ./deploy.sh --local [--no-up] [--dry-run]
@@ -45,15 +46,6 @@ while (( $# )); do
     --dry-run)
       DRY_RUN=1
       shift
-      ;;
-    --no-up)
-      NO_UP=1
-      shift
-      ;;
-    --port)
-      if [[ $# -lt 2 ]]; then echo "ERROR: --port needs a value" >&2; exit 2; fi
-      SSH_PORT="$2"
-      shift 2
       ;;
     -h|--help)
       usage
@@ -141,7 +133,19 @@ else
 fi
 
 # Rsync current directory to remote
-RSYNC_FLAGS=(-az --delete --no-owner --no-group --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude '.DS_Store')
+RSYNC_FLAGS=(
+  -az
+  --delete
+  --no-owner
+  --no-group
+  --exclude '.git'
+  --exclude '.venv'
+  --exclude '__pycache__'
+  --exclude '.DS_Store'
+  --exclude 'data/git'
+  --exclude 'data/releases'
+)
+
 if (( DRY_RUN == 1 )); then
   RSYNC_FLAGS+=(--dry-run -v)
 fi
@@ -157,7 +161,7 @@ else
     echo "==> [dry-run] Would run docker compose up -d --build in ${REMOTE_PATH} on ${REMOTE_HOST}"
   else
     # Prefer docker compose; fall back to docker-compose
-    ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" bash -lc "env --chdir '${REMOTE_PATH}' docker compose up -d --build || echo 'docker compose failed'"
+    ssh -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" bash -lc "cd ${REMOTE_PATH} && docker compose up -d --build || echo 'docker compose failed'"
   fi
 fi
 

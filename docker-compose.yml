@@ -23,6 +23,7 @@ services:
       - ./mirror/hooks/post-fetch:/srv/hooks/post-fetch:ro
       - ./mirror/mirror-sync.sh:/usr/local/bin/mirror-sync.sh:ro
       - ./mirror/fetch-gh-assets.sh:/usr/local/bin/fetch-gh-assets.sh:ro
+      - ./mirror/download-latest-assets.sh:/usr/local/bin/download-latest-assets.sh:ro
   api:
     build:
       context: ./api
@@ -35,12 +36,12 @@ services:
     volumes:
       - ./data/git:/srv/git:ro
     restart: unless-stopped
-  gost:
-    build: ./proxy
-    container_name: cgit-proxy
-    restart: unless-stopped
-    expose:
-      - "8080"
+  #gost:
+  #  build: ./proxy
+  #  container_name: cgit-proxy
+  #  restart: unless-stopped
+  #  expose:
+  #    - "8080"
 networks:
   default:
     driver: bridge
