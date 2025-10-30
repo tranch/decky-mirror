@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euox pipefail
+set -euo pipefail
 # Unified deploy script
 # Usage:
 #   ./deploy.sh --local [--no-up] [--dry-run]
@@ -135,15 +135,9 @@ fi
 # Rsync current directory to remote
 RSYNC_FLAGS=(
   -az
-  --delete
   --no-owner
   --no-group
-  --exclude '.git'
-  --exclude '.venv'
-  --exclude '__pycache__'
-  --exclude '.DS_Store'
-  --exclude 'data/git'
-  --exclude 'data/releases'
+  --filter=':- .gitignore'
 )
 
 if (( DRY_RUN == 1 )); then
@@ -160,8 +154,7 @@ else
   if (( DRY_RUN == 1 )); then
     echo "==> [dry-run] Would run docker compose up -d --build in ${REMOTE_PATH} on ${REMOTE_HOST}"
   else
-    # Prefer docker compose; fall back to docker-compose
-    ssh -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" bash -lc "cd ${REMOTE_PATH} && docker compose up -d --build || echo 'docker compose failed'"
+    ssh -o StrictHostKeyChecking=accept-new "$REMOTE_HOST" "cd ${REMOTE_PATH} && docker compose up -d --build || echo 'docker compose failed'"
   fi
 fi
 

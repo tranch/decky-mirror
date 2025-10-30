@@ -31,6 +31,10 @@ services:
         PIP_INDEX_URL: ${PIP_INDEX_URL}
     image: cgit-api:latest
     container_name: cgit-api
+    environment:
+      - GIT_ROOT=${GIT_ROOT}
+      - CGIT_BASE=${CGIT_BASE}
+      - KEEP_N=${KEEP_N}
     ports:
       - "127.0.0.1:8700:8000"
     volumes:
