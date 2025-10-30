@@ -134,7 +134,8 @@ fi
 
 # Rsync current directory to remote
 RSYNC_FLAGS=(
-  -az
+  -azv
+  --no-times
   --no-owner
   --no-group
   --filter=':- .gitignore'

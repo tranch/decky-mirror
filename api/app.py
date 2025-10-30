@@ -1,75 +1,154 @@
-import os, re, subprocess, logging
+import os
+import logging
 from pathlib import Path
+from typing import List, Dict, Any
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Mini GH Releases Mirror")
+app = FastAPI(title="Mini GH Releases Mirror (filesystem)")
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger("uvicorn.error")
 
+RELEASES_ROOT = Path(os.getenv("RELEASES_ROOT", "/srv/releases")).resolve()
+RELEASE_BASE = os.getenv("RELEASE_BASE", "https://decky.mirror.example.com")
 
-GIT_ROOT = Path(os.getenv("GIT_ROOT", "/srv/git"))
-CGIT_BASE = os.getenv("CGIT_BASE", "https://decky.mirror.example.com")
-KEEP_N = int(os.getenv("KEEP_N", "3"))
 
-# SemVer like: v1.2.3 or 1.2.3 (no pre-release/meta)
-SEMVER_RE = re.compile(r"^[vV]?\d+\.\d+\.\d+$")
+def repo_root(owner: str, repo: str) -> Path:
+    """return /srv/releases/<owner>/<repo>"""
+    return RELEASES_ROOT / owner / repo
 
-def list_tags(owner: str, repo: str) -> list[str]:
-    """List all tags for a bare mirror, newest-first by version (desc)."""
-    git_dir = GIT_ROOT / owner / f"{repo}.git"
-    if not git_dir.is_dir():
-        raise FileNotFoundError(git_dir)
 
-    # Get all tags (names only). Fallback if no taggerdate available.
-    out = subprocess.check_output(
-        ["git", f"--git-dir={git_dir}", "for-each-ref",
-         "--format=%(refname:strip=2)", "refs/tags"],
-        text=True
-    )
-    tags = [t.strip() for t in out.splitlines() if t.strip()]
-    # Filter stable (no '-' -> no pre-release)
-    stable = [t for t in tags if SEMVER_RE.match(t)]
-    # Sort like SemVer descending (Python's sort doesn't know semver; -V comes from coreutils,
-    # so here we split by '.' and compare tuples; 'v' prefix removed)
-    def norm(t: str):
-        t = t[1:] if t.lower().startswith("v") else t
-        major, minor, patch = t.split(".")
-        return (int(major), int(minor), int(patch))
-    stable.sort(key=norm, reverse=True)
-    return stable
+def releases_dir(owner: str, repo: str) -> Path:
+    """return /srv/releases/<owner>/<repo>/releases"""
+    return repo_root(owner, repo) / "releases"
 
-def make_releases(owner: str, repo: str, tags: list[str]) -> list[dict]:
-    """Build a GitHub-compatible releases array; each has one asset pointing to cgit snapshot."""
-    releases = []
-    for tag in tags[:KEEP_N]:
-        asset_name = f"{repo}-{tag}.tar.gz"
-        asset_url = f"{CGIT_BASE}/{owner}/{repo}/snapshot/{asset_name}"
-        releases.append({
-            "tag_name": tag,
-            "prerelease": False,
-            "assets": [
-                {
-                    "name": asset_name,
-                    "browser_download_url": asset_url,
-                }
-            ],
-        })
-    return releases
 
-@app.get("/healthz")
-def healthz():
-    return {"ok": True}
+def downloads_dir(owner: str, repo: str) -> Path:
+    """return /srv/releases/<owner>/<repo>/releases/download"""
+    return releases_dir(owner, repo) / "download"
+
+
+def latest_download_dir(owner: str, repo: str) -> Path:
+    """return /srv/releases/<owner>/<repo>/releases/latest/download"""
+    return releases_dir(owner, repo) / "latest" / "download"
+
+
+def ensure_repo_exists(owner: str, repo: str) -> None:
+    root = repo_root(owner, repo)
+    if not root.exists():
+        logger.warning("Repo not found on disk: %s/%s, %s", owner, repo, root)
+        raise HTTPException(status_code=404, detail="repo not found")
+
+
+def list_tags(owner: str, repo: str) -> List[str]:
+    """
+    /srv/releases/<owner>/<repo>/releases/download/<tag>/*
+    """
+    ddir = downloads_dir(owner, repo)
+    if not ddir.exists():
+        return []
+
+    tags: List[str] = []
+    for p in ddir.iterdir():
+        if p.is_dir():
+            tags.append(p.name)
+
+    # sort by mtime desc
+    tags.sort(key=lambda t: (ddir / t).stat().st_mtime, reverse=True)
+    return tags
+
+
+def resolve_latest_tag(owner: str, repo: str) -> str:
+    """
+    Resolve the latest tag for the given repo.
+    """
+    latest_dl = latest_download_dir(owner, repo)
+    if latest_dl.exists():
+        try:
+            target = latest_dl.resolve()
+            tag = target.name
+            return tag
+        except OSError:
+            pass
+
+    tags = list_tags(owner, repo)
+    if not tags:
+        raise HTTPException(status_code=404, detail="no releases found")
+    return tags[0]
+
+
+def build_asset_entry(owner: str, repo: str, tag: str, file_path: Path) -> Dict[str, Any]:
+    rel_url = f"{owner}/{repo}/releases/download/{tag}/{file_path.name}"
+    if tag == "latest":
+        rel_url = rel_url.replace(f"download/{tag}", "{tag}/download")
+    return {
+        "name": file_path.name,
+        "size": file_path.stat().st_size,
+        "created_at": file_path.stat().st_ctime,
+        "updated_at": file_path.stat().st_mtime,
+        "browser_download_url": f"{RELEASE_BASE}/{rel_url}",
+        "content_type": "application/octet-stream",
+        "browser_download_url": f"{RELEASE_BASE}/{rel_url}",
+    }
+
+
+def make_release(owner: str, repo: str, tag: str) -> Dict[str, Any]:
+    ddir = downloads_dir(owner, repo) / tag
+
+    if not ddir.exists() or not ddir.is_dir():
+        raise HTTPException(status_code=404, detail="release not found")
+
+    assets: List[Dict[str, Any]] = []
+
+    for item in sorted(ddir.iterdir()):
+        if item.is_file():
+            assets.append(build_asset_entry(owner, repo, tag, item))
+
+    return {
+        "id": tag,
+        "tag_name": tag,
+        "name": tag,
+        "assets": assets
+    }
+
+
+def make_releases(owner: str, repo: str, tags: List[str]) -> List[Dict[str, Any]]:
+    return [make_release(owner, repo, tag) for tag in tags]
+
+
+@app.get("/repos/{owner}/{repo}/releases/latest")
+def get_latest_release(owner: str, repo: str):
+    ensure_repo_exists(owner, repo)
+    tag = resolve_latest_tag(owner, repo)
+    return JSONResponse(make_release(owner, repo, tag))
+
+
+@app.get("/repos/{owner}/{repo}/releases/{tag}")
+def get_release(owner: str, repo: str, tag: str):
+    """
+    Examples:
+    - /repos/o/r/releases/latest
+    - /repos/o/r/releases/v1.2.3
+    """
+    ensure_repo_exists(owner, repo)
+
+    if tag == "latest":
+        tag = resolve_latest_tag(owner, repo)
+
+    return JSONResponse(make_release(owner, repo, tag))
+
 
 @app.get("/repos/{owner}/{repo}/releases")
-def releases(owner: str, repo: str):
-    try:
-        tags = list_tags(owner, repo)
-    except FileNotFoundError as e:
-        logger.warning(f"Repo not found: {e}")
-        raise HTTPException(status_code=404, detail="repo not found")
+def list_releases(owner: str, repo: str):
+    ensure_repo_exists(owner, repo)
+    tags = list_tags(owner, repo)
+    if not tags:
+        raise HTTPException(status_code=404, detail="no releases found")
     return JSONResponse(make_releases(owner, repo, tags))
 
