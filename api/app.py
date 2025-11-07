@@ -103,6 +103,8 @@ def make_release(owner: str, repo: str, tag: str) -> Dict[str, Any]:
     ddir = downloads_dir(owner, repo) / tag
 
     if not ddir.exists() or not ddir.is_dir():
+        logger.warning("Release not found on disk: %s/%s tag=%s, %s",
+                       owner, repo, tag, ddir)
         raise HTTPException(status_code=404, detail="release not found")
 
     assets: List[Dict[str, Any]] = []
