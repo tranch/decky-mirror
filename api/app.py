@@ -74,7 +74,8 @@ def resolve_latest_tag(owner: str, repo: str) -> str:
             target = latest_dl.resolve()
             tag = target.name
             return tag
-        except OSError:
+        except OSError as e:
+            logger.error("Failed to resolve latest symlink: %s", e)
             pass
 
     tags = list_tags(owner, repo)
