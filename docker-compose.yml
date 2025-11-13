@@ -47,6 +47,21 @@ services:
   #  restart: unless-stopped
   #  expose:
   #    - "8080"
+  plugin:
+    build:
+      context: ./plugin_store
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL}
+    image: decky-plugin-store:latest
+    container_name: cgit-plugin-store
+    environment:
+      - PLUGIN_STORE_ADMIN_TOKEN=${PLUGIN_STORE_ADMIN_TOKEN}
+    ports:
+      - "127.0.0.1:8701:8001"
+    volumes:
+      - ./data/plugins:/srv/plugins
+    restart: unless-stopped
+    
 networks:
   default:
     driver: bridge

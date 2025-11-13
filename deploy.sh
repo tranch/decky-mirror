@@ -139,6 +139,7 @@ RSYNC_FLAGS=(
   --no-owner
   --no-group
   --filter=':- .gitignore'
+  --exclude='.git/'
 )
 
 if (( DRY_RUN == 1 )); then
