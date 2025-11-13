@@ -301,5 +301,5 @@ async def increment_plugin_version_counter(
 
     db.commit()
 
-    return {}, status.HTTP_204_NO_CONTENT
+    return {}
 

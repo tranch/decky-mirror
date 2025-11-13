@@ -11,7 +11,7 @@ from typing import List, Optional
 
 ADMIN_TOKEN = os.getenv("PLUGIN_STORE_ADMIN_TOKEN")
 
-class PluginAdminOut(BaseModel):
+class PluginDetail(BaseModel):
     id: int
     upstream_id: Optional[int]
     name: str
@@ -70,12 +70,13 @@ internal_router = APIRouter(
     dependencies=[Depends(verify_admin_token)],
 )
 
-# create a plugin
+
 @internal_router.post("/plugins")
 async def admin_create_plugin(
     payload: PluginCreate,
     db: Session = Depends(get_db),
 ):
+    """Create a new plugin."""
     plugin = Plugin(
         name=payload.name,
         author=payload.author,
@@ -96,13 +97,14 @@ async def admin_create_plugin(
         "name": plugin.name,
     }, status.HTTP_201_CREATED
 
-# publish new version
+
 @internal_router.post("/plugins/{plugin_id}/versions")
 async def admin_publish_plugin_version(
     plugin_id: int,
     payload: PluginVersionCreate,
     db: Session = Depends(get_db),
 ):
+    """Publish a new version for a plugin."""
     plugin = db.query(Plugin).filter(Plugin.id == plugin_id).first()
     if plugin is None:
         raise HTTPException(status_code=404, detail="Plugin not found")
@@ -129,12 +131,14 @@ async def admin_publish_plugin_version(
         "updates": version.updates,
     }, status.HTTP_201_CREATED
 
+
 @internal_router.patch("/plugins/{plugin_id}/visibility")
 async def admin_update_plugin_visibility(
     plugin_id: int,
     payload: PluginVisibilityUpdate,
     db: Session = Depends(get_db),
 ):
+    """Update the visibility of a plugin."""
     plugin = db.query(Plugin).filter(Plugin.id == plugin_id).first()
     if plugin is None:
         raise HTTPException(status_code=404, detail="Plugin not found")
@@ -150,10 +154,11 @@ async def admin_update_plugin_visibility(
     }
 
 
-@internal_router.get("/plugins", response_model=List[PluginAdminOut])
+@internal_router.get("/plugins", response_model=List[PluginDetail])
 async def admin_list_plugins(
     db: Session = Depends(get_db),
 ):
+    """List all plugins."""
     plugins = db.query(Plugin).order_by(Plugin.id.asc()).all()
     return plugins
 
