@@ -2,6 +2,7 @@ import os
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -91,8 +92,8 @@ def build_asset_entry(owner: str, repo: str, tag: str, file_path: Path) -> Dict[
     return {
         "name": file_path.name,
         "size": file_path.stat().st_size,
-        "created_at": file_path.stat().st_ctime,
-        "updated_at": file_path.stat().st_mtime,
+        "created_at": _ts_to_iso(file_path.stat().st_ctime),
+        "updated_at": _ts_to_iso(file_path.stat().st_mtime),
         "browser_download_url": f"{RELEASE_BASE}/{rel_url}",
         "content_type": "application/octet-stream",
         "browser_download_url": f"{RELEASE_BASE}/{rel_url}",
@@ -117,12 +118,16 @@ def make_release(owner: str, repo: str, tag: str) -> Dict[str, Any]:
         "id": tag,
         "tag_name": tag,
         "name": tag,
+        "prerelease": False,
         "assets": assets
     }
 
 
 def make_releases(owner: str, repo: str, tags: List[str]) -> List[Dict[str, Any]]:
     return [make_release(owner, repo, tag) for tag in tags]
+
+def _ts_to_iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
 @app.get("/repos/{owner}/{repo}/releases/latest")
