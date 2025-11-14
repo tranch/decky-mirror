@@ -1,3 +1,5 @@
 https://github.com/SteamDeckHomebrew/decky-loader.git
 https://github.com/SteamDeckHomebrew/decky-installer.git
-
+https://github.com/bazzite-org/decky-bazzite-buddy.git
+https://github.com/xXJSONDeruloXx/Decky-Framegen.git
+https://github.com/xXJSONDeruloXx/decky-lsfg-vk.git
