@@ -17,7 +17,7 @@ set -euo pipefail
 #   - If 'gh' (GitHub CLI) is present, it's used for speed; otherwise curl+jq is used.
 
 REPO="${1:-SteamDeckHomebrew/decky-installer}"
-MIRROR_ROOT="${2:-$(pwd)}"
+MIRROR_ROOT="${2:-/srv/releases}"
 
 # --- helpers -----------------------------------------------------------------
 
