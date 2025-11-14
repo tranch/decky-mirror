@@ -159,6 +159,7 @@ def plugin_to_dict(plugin: Plugin) -> dict:
             {
                 "name": v.name,
                 "hash": v.hash,
+                'artifact': v.artifact,
                 "created": v.created.isoformat().replace("+00:00", "Z") if v.created else None,
                 "downloads": v.downloads,
                 "updates": v.updates,
@@ -274,7 +275,7 @@ async def increment_plugin_version_counter(
     - isUpdate:
         - True  -> increment `updates`
         - False -> increment `downloads`
-    """    
+    """
     plugin = db.query(Plugin).filter(Plugin.name == plugin_name).first()
 
     if not plugin:
