@@ -2,7 +2,7 @@ import os
 import json
 
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from models import Plugin, PluginVersion
 from database import get_db
@@ -40,6 +40,19 @@ class PluginVersionCreate(BaseModel):
     hash: str
     artifact: Optional[str] = None
     created: Optional[str] = None
+
+
+class PluginVersionDetail(BaseModel):
+    id: int
+    name: str
+    hash: str
+    artifact: Optional[str] = None
+    created: Optional[datetime] = None
+    downloads: int
+    updates: int
+
+    class Config:
+        orm_mode = True
 
 
 def verify_admin_token(
@@ -95,7 +108,7 @@ async def admin_create_plugin(
     return {
         "id": plugin.id,
         "name": plugin.name,
-    }, status.HTTP_201_CREATED
+    }
 
 
 @internal_router.post("/plugins/{plugin_id}/versions")
@@ -129,7 +142,28 @@ async def admin_publish_plugin_version(
         "created": version.created.isoformat().replace("+00:00", "Z"),
         "downloads": version.downloads,
         "updates": version.updates,
-    }, status.HTTP_201_CREATED
+    }
+
+
+@internal_router.get("/plugins/{plugin_id}/versions", response_model=List[PluginVersionDetail])
+async def admin_list_plugin_versions(
+    plugin_id: int,
+    db: Session = Depends(get_db),
+):
+    """List all versions for a plugin."""
+    plugin = db.query(Plugin).filter(Plugin.id == plugin_id).first()
+
+    if not plugin:
+        raise HTTPException(status_code=404, detail="Plugin not found")
+
+    versions = (
+        db.query(PluginVersion)
+        .filter(PluginVersion.plugin_id == plugin.id)
+        .order_by(PluginVersion.id.asc())
+        .all()
+    )
+
+    return versions
 
 
 @internal_router.patch("/plugins/{plugin_id}/visibility")

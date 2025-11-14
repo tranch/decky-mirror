@@ -265,7 +265,7 @@ async def increment_plugin_version_counter(
     version_name: str,
     isUpdate: bool = Query(..., description="True if this is an update, False if download"),
     db: Session = Depends(get_db),
-) -> dict:
+):
     """
     Increment downloads/updates counters for a given plugin version.
 
