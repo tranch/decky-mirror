@@ -21,6 +21,16 @@ from config import ARTIFACT_DIR, ALLOWED_MIME_TYPES
 ADMIN_TOKEN = os.getenv("PLUGIN_STORE_ADMIN_TOKEN")
 
 
+def parse_iso8601(s: Optional[str]) -> Optional[datetime]:
+    """Parse ISO8601 string like '2025-10-15T22:29:47Z' to datetime."""
+    if not s:
+        return None
+    # Replace 'Z' with '+00:00' to make it ISO8601 compatible for fromisoformat
+    if s.endswith("Z"):
+        s = s.replace("Z", "+00:00")
+    return datetime.fromisoformat(s)
+
+
 class PluginDetail(BaseModel):
     id: int
     upstream_id: Optional[int]
@@ -156,24 +166,46 @@ async def admin_publish_plugin_version(
     if plugin is None:
         raise HTTPException(status_code=404, detail="Plugin not found")
 
-    version = PluginVersion(
-        plugin_id=plugin.id,
-        name=payload.name,
-        hash=payload.hash,
-        created=datetime.utcnow(),
-        downloads=0,
-        updates=0,
-        artifact=payload.artifact,
+    # Check if a version with the same (plugin_id, name, hash) already exists
+    existing_version = (
+        db.query(PluginVersion)
+        .filter(
+            PluginVersion.plugin_id == plugin_id,
+            PluginVersion.name == payload.name,
+            PluginVersion.hash == payload.hash,
+        )
+        .first()
     )
-    db.add(version)
-    db.commit()
-    db.refresh(version)
+
+    if existing_version:
+        # Update existing version's metadata, but preserve downloads and updates
+        if payload.artifact is not None:
+            existing_version.artifact = payload.artifact
+        if payload.created is not None:
+            existing_version.created = parse_iso8601(payload.created)
+        db.commit()
+        db.refresh(existing_version)
+        version = existing_version
+    else:
+        # Create new version
+        version = PluginVersion(
+            plugin_id=plugin.id,
+            name=payload.name,
+            hash=payload.hash,
+            created=parse_iso8601(payload.created) if payload.created else datetime.utcnow(),
+            downloads=0,
+            updates=0,
+            artifact=payload.artifact,
+        )
+        db.add(version)
+        db.commit()
+        db.refresh(version)
 
     return {
         "id": version.id,
         "name": version.name,
         "hash": version.hash,
-        "created": version.created.isoformat().replace("+00:00", "Z"),
+        "created": version.created.isoformat().replace("+00:00", "Z") if version.created else None,
         "downloads": version.downloads,
         "updates": version.updates,
     }
