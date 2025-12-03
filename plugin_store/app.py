@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, Query, status
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List, Optional
@@ -13,10 +14,10 @@ from datetime import datetime
 
 from models import Plugin, PluginVersion
 from database import init_db, get_db
-from admin import internal_router
+from admin import router as internal_router
+from config import ARTIFACT_DIR, PLUGIN_DOWNLOAD_PATH
 
 
-ADMIN_TOKEN = os.getenv("PLUGIN_STORE_ADMIN_TOKEN", "")
 app = FastAPI()
 
 app.add_middleware(
@@ -26,6 +27,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/artifacts",
+          StaticFiles(directory=Path(ARTIFACT_DIR).resolve()),
+          name="artifact_files")
 
 app.include_router(internal_router)
 
@@ -38,7 +43,7 @@ def on_startup():
 
 def load_plugins_from_source() -> List[dict]:
     """Load plugins list from local JSON file, or fetch from upstream if missing."""
-    download_path = Path("/srv/plugins")
+    download_path = Path(PLUGIN_DOWNLOAD_PATH).resolve()
     download_path.mkdir(parents=True, exist_ok=True)
 
     target_file = download_path / "plugins.json"

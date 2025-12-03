@@ -56,6 +56,9 @@ services:
     container_name: cgit-plugin-store
     environment:
       - PLUGIN_STORE_ADMIN_TOKEN=${PLUGIN_STORE_ADMIN_TOKEN}
+      - PLUGIN_STORE_DB_PATH=${PLUGIN_STORE_DB_PATH}
+      - PLUGIN_STORE_DOWNLOAD_PATH=${PLUGIN_STORE_DOWNLOAD_PATH}
+      - PLUGIN_STORE_ARTIFACT_DIR=${PLUGIN_STORE_ARTIFACT_DIR}
     ports:
       - "127.0.0.1:8701:8001"
     volumes:

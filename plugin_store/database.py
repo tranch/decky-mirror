@@ -1,7 +1,7 @@
+from config import SQLALCHEMY_DATABASE_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_DATABASE_URL = "sqlite:////srv/plugins/plugins.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -18,6 +18,6 @@ def get_db():
         yield db
     finally:
         db.close()
-     
+
 def init_db():
     Base.metadata.create_all(bind=engine)

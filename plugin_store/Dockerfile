@@ -19,7 +19,7 @@ COPY requirements.txt .
 
 RUN pip install --index-url "$PIP_INDEX_URL" -r requirements.txt
 
-COPY app.py admin.py database.py models.py .
+COPY config.py app.py admin.py database.py models.py .
 
 EXPOSE 8001
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001"]
