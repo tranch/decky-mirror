@@ -7,14 +7,29 @@ mkdir -p "${GIT_ROOT}" "${OUT_ROOT}"
 
 git config --system core.hooksPath /srv/hooks || true
 
-stop=0
-on_term(){ log "Received stop signal, will exit."; stop=1; }
+TERMINATE=0
+PID=0
+SLEEP_PID=0
+
+on_term(){
+  log "Received stop signal, will exit."
+  TERMINATE=1
+  if [ "${SLEEP_PID:-0}" -gt 0 ]; then
+    kill "$SLEEP_PID" 2>/dev/null || true
+  fi
+  if [ "${PID:-0}" -gt 0 ]; then
+    kill "$PID" 2>/dev/null || true
+  fi
+}
 trap on_term SIGTERM SIGINT
 
 sync_once() {
-  if ! timeout "${FETCH_TIMEOUT}" /usr/local/bin/mirror-sync.sh; then
+  timeout "${FETCH_TIMEOUT}" /usr/local/bin/mirror-sync.sh &
+  PID=$!
+  wait "$PID" 2>/dev/null || {
     log "mirror-sync exceeded ${FETCH_TIMEOUT}s or failed (continuing next cycle)."
-  fi
+  }
+  PID=0
 }
 
 sync_once
@@ -24,11 +39,13 @@ if [[ "${INTERVAL}" == "0" ]]; then
   exit 0
 fi
 
-while [[ "${stop}" -eq 0 ]]; do
-  sleep "${INTERVAL}" || true
-  [[ "${stop}" -ne 0 ]] && break
+while [[ "${TERMINATE}" -eq 0 ]]; do
+  sleep "${INTERVAL}" &
+  SLEEP_PID=$!
+  wait "$SLEEP_PID" 2>/dev/null || true
+  SLEEP_PID=0
+  [[ "${TERMINATE}" -ne 0 ]] && break
   sync_once
 done
 
 log "Mirror loop stopped."
-
